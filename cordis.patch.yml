@@ -1,0 +1,49 @@
+# The dsh-ssrf-guard bundle patch.
+#
+# `dsh plugin --profile <name> add …` installs this package into the profile,
+# sees the `dsh.bundle.patch` field in its package.json, and appends the
+# package to the profile manifest's ordered `dsh.profile.bundles` list. This
+# file is then composed as one layer over the bundles below it (dsh-base and
+# the mode bundle) and under the profile's own cordis.patch.yml.
+#
+# One insert, one row: the URL allowlist plugin. A later layer — the profile's
+# cordis.patch.yml or a `--patch` overlay — addresses the row by its `id` to
+# name the hosts this deployment is actually allowed to reach. Note that an
+# id-targeted patch replaces the row's whole `config` rather than merging into
+# it, so an override must restate every field it means to keep, including
+# `allowSchemes` if it is not the default.
+#
+# config:
+#   allowHosts    list of allowed hosts. An entry is either an EXACT hostname
+#                 (`example.com` matches only `example.com`, never
+#                 `evil.example.com`) or a leading-dot SUFFIX rule
+#                 (`.example.com` matches `foo.example.com` and `example.com`
+#                 itself, but not `notexample.com`). Comparison is
+#                 case-insensitive, ports are not part of the match, and
+#                 loopback and link-local addresses are reachable only by an
+#                 exact entry — a suffix rule never unlocks them.
+#                 Default: [] — the empty list, which allows NOTHING.
+#                 (Env fallback, used only if this key is absent:
+#                 DSH_SSRF_ALLOW_HOSTS, a comma-separated list.)
+#   allowSchemes  list of allowed URL schemes. Default: ["https"], so `http:`,
+#                 `file:`, and everything else are denied.
+#                 (Env fallback: DSH_SSRF_ALLOW_SCHEMES, comma-separated.)
+#
+# The row below states the fail-closed default explicitly rather than leaving
+# it implicit: a profile that installs this bundle and configures nothing
+# denies every outbound URL, which is the intended starting point. Name the
+# hosts you actually need from the profile's own layer:
+#
+#   - id: ssrf-guard
+#     config:
+#       allowHosts:
+#         - .example.com
+#         - api.vendor.test
+#       allowSchemes: [https]
+
+- insert:
+    - id: ssrf-guard
+      name: dsh-ssrf-guard
+      config:
+        allowHosts: []
+        allowSchemes: [https]
